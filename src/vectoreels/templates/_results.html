@@ -1,0 +1,14 @@
+{% if posts %}
+  <p>{{ posts|length }} result(s)</p>
+  {% for post in posts %}
+    <div class="post">
+      <div class="caption">{{ post.caption if post.caption else "(no caption)" }}</div>
+      {% if post.hashtags %}
+        <div class="hashtags">{% for tag in post.hashtags %}#{{ tag }} {% endfor %}</div>
+      {% endif %}
+      <a href="{{ post.url }}" target="_blank" rel="noopener">{{ post.url }}</a>
+    </div>
+  {% endfor %}
+{% else %}
+  <p>No results.</p>
+{% endif %}

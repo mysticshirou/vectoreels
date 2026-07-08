@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>vectoreels</h1>
+
+  <fieldset>
+    <legend>Load dataset</legend>
+    <form hx-post="/upload" hx-target="#upload-status" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      <input type="file" name="file" accept="application/json" required>
+      <button type="submit">Upload liked_posts.json</button>
+    </form>
+    <div id="upload-status"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Search</legend>
+    <form hx-post="/search" hx-target="#results" hx-swap="innerHTML" x-data="{ keywords: [], newKeyword: '' }">
+      <label for="description">Description (matches caption)</label>
+      <input type="text" id="description" name="description" placeholder="e.g. a shoebill stork">
+
+      <label for="date_from">From date</label>
+      <input type="date" id="date_from" name="date_from">
+
+      <label for="date_to">To date</label>
+      <input type="date" id="date_to" name="date_to">
+
+      <label for="new-keyword">Hashtag keywords</label>
+      <input
+        type="text"
+        id="new-keyword"
+        x-model="newKeyword"
+        placeholder="type a hashtag, press Enter"
+        @keydown.enter.prevent="if (newKeyword.trim()) { keywords.push(newKeyword.trim()); newKeyword = '' }"
+      >
+      <div>
+        <template x-for="(keyword, index) in keywords" :key="index">
+          <span class="chip">
+            <input type="hidden" name="keywords" :value="keyword">
+            <span x-text="keyword"></span>
+            <button type="button" @click="keywords.splice(index, 1)">&times;</button>
+          </span>
+        </template>
+      </div>
+
+      <button type="submit">Search</button>
+    </form>
+    <div id="results"></div>
+  </fieldset>
+{% endblock %}

@@ -3,7 +3,8 @@ from collections.abc import Iterable
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 
-from vectoreels.models import ProcessedPost
+from vectoreels.models import ProcessedPost, SearchFilters
+from vectoreels.query import build_search_query
 
 INDEX_NAME = "reels"
 
@@ -34,3 +35,13 @@ def index_posts(
     client: Elasticsearch, posts: list[ProcessedPost], index_name: str = INDEX_NAME
 ) -> None:
     bulk(client, to_bulk_actions(index_name, posts))
+
+
+def search_posts(
+    client: Elasticsearch,
+    filters: SearchFilters,
+    index_name: str = INDEX_NAME,
+    size: int = 50,
+) -> list[ProcessedPost]:
+    response = client.search(index=index_name, size=size, **build_search_query(filters))
+    return [ProcessedPost.model_validate(hit["_source"]) for hit in response["hits"]["hits"]]
