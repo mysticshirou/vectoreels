@@ -19,3 +19,11 @@ class LikedPost(BaseModel):
     media: list[Any] = Field(default_factory=list)
     label_values: list[SimpleLabelValue | GroupedLabelValue]
     fbid: str
+
+
+class ProcessedPost(BaseModel):
+    fbid: str = Field(min_length=1)
+    timestamp: int
+    url: str = Field(min_length=1)
+    caption: str
+    hashtags: list[str]
