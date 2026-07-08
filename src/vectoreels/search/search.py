@@ -15,6 +15,7 @@ INDEX_MAPPING = {
         "url": {"type": "keyword"},
         "caption": {"type": "text"},
         "hashtags": {"type": "keyword"},
+        "music_title": {"type": "text"},
     }
 }
 

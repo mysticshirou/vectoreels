@@ -27,6 +27,7 @@ class ProcessedPost(BaseModel):
     url: str = Field(min_length=1)
     caption: str | None
     hashtags: list[str]
+    music_title: str | None = None
 
 
 class SearchFilters(BaseModel):

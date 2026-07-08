@@ -3,6 +3,7 @@ from vectoreels.download.formats import (
     select_best_audio_format,
     select_best_picture_url,
     select_best_video_format,
+    select_music_title,
 )
 
 VIDEO_FORMAT = {"url": "https://cdn/video.mp4", "vcodec": "vp09", "acodec": "none", "tbr": 968.1}
@@ -53,3 +54,26 @@ def test_iter_media_entries_returns_entries_for_playlist() -> None:
     entry_b = {"thumbnails": [{"url": "https://cdn/pic.jpg"}]}
     info = {"entries": [entry_a, entry_b]}
     assert iter_media_entries(info) == [entry_a, entry_b]
+
+
+def test_select_music_title_reads_licensed_music_info() -> None:
+    entry = {
+        "music_metadata": {
+            "music_info": {"music_asset_info": {"title": "Miguel Phonk (Slowed + Reverb)"}}
+        }
+    }
+    assert select_music_title(entry) == "Miguel Phonk (Slowed + Reverb)"
+
+
+def test_select_music_title_returns_none_when_no_music_metadata() -> None:
+    assert select_music_title({}) is None
+
+
+def test_select_music_title_returns_none_when_music_metadata_is_none() -> None:
+    assert select_music_title({"music_metadata": None}) is None
+
+
+def test_select_music_title_returns_none_when_music_info_is_none() -> None:
+    # e.g. non-licensed "original audio" posts, which carry original_sound_info instead
+    entry = {"music_metadata": {"music_info": None, "original_sound_info": None}}
+    assert select_music_title(entry) is None

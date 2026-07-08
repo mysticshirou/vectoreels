@@ -8,3 +8,6 @@ dist/
 
 # local dataset, not tracked in git
 dataset/
+
+# Instagram session cookies for authenticated yt-dlp access, not tracked in git
+cookies.txt

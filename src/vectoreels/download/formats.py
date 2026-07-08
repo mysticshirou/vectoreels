@@ -34,3 +34,10 @@ def select_best_picture_url(thumbnails: list[dict[str, Any]]) -> str | None:
 def iter_media_entries(info: dict[str, Any]) -> list[dict[str, Any]]:
     entries = info.get("entries")
     return list(entries) if entries is not None else [info]
+
+
+def select_music_title(entry: dict[str, Any]) -> str | None:
+    music_metadata = entry.get("music_metadata") or {}
+    music_info = music_metadata.get("music_info") or {}
+    asset_info = music_info.get("music_asset_info") or {}
+    return asset_info.get("title") or None
