@@ -13,6 +13,13 @@ def test_build_search_query_with_description_matches_caption() -> None:
     }
 
 
+def test_build_search_query_with_song_matches_music_title() -> None:
+    query = build_search_query(SearchFilters(song="Miguel Phonk"))
+    assert query == {
+        "query": {"bool": {"must": [{"match": {"music_title": "Miguel Phonk"}}]}}
+    }
+
+
 def test_build_search_query_with_keywords_filters_hashtags() -> None:
     query = build_search_query(SearchFilters(keywords=["space", "fyp"]))
     assert query == {
@@ -60,7 +67,7 @@ def test_parse_date_to_epoch_end_of_day() -> None:
 
 
 def test_to_search_filters_treats_blank_strings_as_absent() -> None:
-    filters = to_search_filters(keywords=[], description="", date_from="", date_to="")
+    filters = to_search_filters(keywords=[], description="", date_from="", date_to="", song="")
     assert filters == SearchFilters()
 
 
@@ -70,10 +77,12 @@ def test_to_search_filters_parses_dates_and_keeps_keywords() -> None:
         description="a shoebill stork",
         date_from="2026-01-15",
         date_to="2026-01-15",
+        song="Miguel Phonk",
     )
     assert filters == SearchFilters(
         keywords=["space", "fyp"],
         description="a shoebill stork",
         date_from=1768435200,
         date_to=1768521599,
+        song="Miguel Phonk",
     )

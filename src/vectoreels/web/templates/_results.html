@@ -6,6 +6,9 @@
       {% if post.hashtags %}
         <div class="hashtags">{% for tag in post.hashtags %}#{{ tag }} {% endfor %}</div>
       {% endif %}
+      {% if post.music_title %}
+        <div class="music-title">🎵 {{ post.music_title }}</div>
+      {% endif %}
       <a href="{{ post.url }}" target="_blank" rel="noopener">{{ post.url }}</a>
     </div>
   {% endfor %}

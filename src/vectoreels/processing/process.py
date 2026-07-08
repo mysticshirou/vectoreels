@@ -1,8 +1,14 @@
 import re
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 from vectoreels.models import GroupedLabelValue, LikedPost, ProcessedPost, SimpleLabelValue
 from vectoreels.processing.ownership import find_single_account_captions
 from vectoreels.processing.relevance import is_irrelevant_caption
+
+MusicTitleLookup = Callable[[str], str | None]
+
+_MUSIC_LOOKUP_WORKERS = 16
 
 LabelValue = SimpleLabelValue | GroupedLabelValue
 
@@ -70,10 +76,20 @@ def process_post(
     )
 
 
-def process_posts(posts: list[LikedPost]) -> list[ProcessedPost]:
+def process_posts(
+    posts: list[LikedPost], music_title_lookup: MusicTitleLookup | None = None
+) -> list[ProcessedPost]:
     caption_owner_pairs = (
         (clean_caption(extract_caption(post.label_values)), extract_owner_username(post.label_values))
         for post in posts
     )
     single_account_captions = frozenset(find_single_account_captions(caption_owner_pairs))
-    return [process_post(post, single_account_captions) for post in posts]
+    processed = [process_post(post, single_account_captions) for post in posts]
+
+    if music_title_lookup is not None:
+        with ThreadPoolExecutor(max_workers=_MUSIC_LOOKUP_WORKERS) as executor:
+            titles = executor.map(music_title_lookup, (post.url for post in processed))
+            for post, title in zip(processed, titles, strict=True):
+                post.music_title = title
+
+    return processed

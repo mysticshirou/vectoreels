@@ -33,5 +33,6 @@ class ProcessedPost(BaseModel):
 class SearchFilters(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     description: str | None = None
+    song: str | None = None
     date_from: int | None = None
     date_to: int | None = None

@@ -20,10 +20,12 @@ services:
     build: .
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - INSTAGRAM_COOKIES_PATH=/app/cookies.txt
     ports:
       - "8000:8000"
     volumes:
       - ./src:/app/src
+      - ./cookies.txt:/app/cookies.txt
     depends_on:
       elasticsearch:
         condition: service_healthy

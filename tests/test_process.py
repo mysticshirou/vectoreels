@@ -202,3 +202,36 @@ def test_process_posts_maps_over_all_posts() -> None:
 
     assert len(result) == 2
     assert all(p.fbid == "fb1" for p in result)
+
+
+def test_process_posts_leaves_music_title_none_without_a_lookup() -> None:
+    post = LikedPost(
+        timestamp=1,
+        media=[],
+        fbid="fb1",
+        label_values=[_simple("URL", "https://www.instagram.com/reel/abc/")],
+    )
+
+    result = process_posts([post])
+
+    assert result[0].music_title is None
+
+
+def test_process_posts_attaches_music_title_from_injected_lookup() -> None:
+    posts = [
+        LikedPost(
+            timestamp=i,
+            media=[],
+            fbid=f"fb{i}",
+            label_values=[_simple("URL", f"https://www.instagram.com/reel/{i}/")],
+        )
+        for i in range(3)
+    ]
+    titles_by_url = {
+        "https://www.instagram.com/reel/0/": "Song A",
+        "https://www.instagram.com/reel/2/": "Song B",
+    }
+
+    result = process_posts(posts, music_title_lookup=titles_by_url.get)
+
+    assert [p.music_title for p in result] == ["Song A", None, "Song B"]

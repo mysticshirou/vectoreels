@@ -15,10 +15,12 @@ def to_search_filters(
     description: str | None,
     date_from: str | None,
     date_to: str | None,
+    song: str | None = None,
 ) -> SearchFilters:
     return SearchFilters(
         keywords=keywords,
         description=description or None,
+        song=song or None,
         date_from=parse_date_to_epoch(date_from) if date_from else None,
         date_to=parse_date_to_epoch(date_to, end_of_day=True) if date_to else None,
     )
@@ -30,6 +32,9 @@ def build_search_query(filters: SearchFilters) -> dict[str, object]:
 
     if filters.description:
         must.append({"match": {"caption": filters.description}})
+
+    if filters.song:
+        must.append({"match": {"music_title": filters.song}})
 
     if filters.keywords:
         filter_.append({"terms": {"hashtags": filters.keywords}})
