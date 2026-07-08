@@ -89,7 +89,9 @@ def process_posts(
     if music_title_lookup is not None:
         with ThreadPoolExecutor(max_workers=_MUSIC_LOOKUP_WORKERS) as executor:
             titles = executor.map(music_title_lookup, (post.url for post in processed))
-            for post, title in zip(processed, titles, strict=True):
-                post.music_title = title
+            processed = [
+                post.model_copy(update={"music_title": title})
+                for post, title in zip(processed, titles, strict=True)
+            ]
 
     return processed
