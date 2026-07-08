@@ -9,10 +9,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from vectoreels.ingest import parse_liked_posts
-from vectoreels.process import process_posts
-from vectoreels.query import to_search_filters
-from vectoreels.search import ensure_index, index_posts, search_posts
+from vectoreels.ingestion.ingest import parse_liked_posts
+from vectoreels.processing.process import process_posts
+from vectoreels.search.query import to_search_filters
+from vectoreels.search.search import ensure_index, index_posts, search_posts
 
 PACKAGE_DIR = Path(__file__).parent
 ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", "http://localhost:9200")

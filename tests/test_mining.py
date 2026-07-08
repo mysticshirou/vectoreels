@@ -1,4 +1,4 @@
-from vectoreels.mining import cluster_captions
+from vectoreels.processing.mining import cluster_captions
 
 
 def test_cluster_captions_counts_exact_duplicates_meeting_threshold() -> None:

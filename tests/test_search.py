@@ -1,5 +1,5 @@
 from vectoreels.models import ProcessedPost
-from vectoreels.search import to_bulk_actions
+from vectoreels.search.search import to_bulk_actions
 
 
 def test_to_bulk_actions_uses_fbid_as_document_id() -> None:

@@ -2,15 +2,16 @@
 import argparse
 from pathlib import Path
 
-from vectoreels.ingest import read_liked_posts
-from vectoreels.irrelevant_captions_file import read_captions_file, write_captions_file
-from vectoreels.mining import cluster_captions
-from vectoreels.process import clean_caption, extract_caption
-from vectoreels.relevance import tokenize
+from vectoreels.ingestion.ingest import read_liked_posts
+from vectoreels.processing.irrelevant_captions_file import read_captions_file, write_captions_file
+from vectoreels.processing.mining import cluster_captions
+from vectoreels.processing.ownership import find_single_account_captions
+from vectoreels.processing.process import clean_caption, extract_caption, extract_owner_username
+from vectoreels.processing.relevance import tokenize
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DEFAULT_DATASET_PATH = PROJECT_ROOT / "dataset" / "liked_posts.json"
-CAPTIONS_FILE_PATH = PROJECT_ROOT / "src" / "vectoreels" / "irrelevant_captions.txt"
+CAPTIONS_FILE_PATH = PROJECT_ROOT / "src" / "vectoreels" / "processing" / "irrelevant_captions.txt"
 
 
 def is_already_covered(candidate: str, existing: list[str]) -> bool:
@@ -36,6 +37,8 @@ def main() -> None:
 
     posts = read_liked_posts(args.dataset)
     captions = [clean_caption(extract_caption(post.label_values)) for post in posts]
+    owners = [extract_owner_username(post.label_values) for post in posts]
+    single_account_captions = find_single_account_captions(zip(captions, owners, strict=True))
 
     clusters = cluster_captions(captions, min_count=args.min_count)
     clusters.sort(key=lambda item: item[1], reverse=True)
@@ -44,6 +47,9 @@ def main() -> None:
 
     new_entries: list[str] = []
     for text, count in clusters:
+        if text in single_account_captions:
+            print(f"[skip, single account]  ({count:>5}x) {text!r}")
+            continue
         if is_already_covered(text, existing) or is_already_covered(text, new_entries):
             print(f"[skip, already covered] ({count:>5}x) {text!r}")
             continue

@@ -1,7 +1,7 @@
 import pytest
 
-from vectoreels.irrelevant_captions import IRRELEVANT_CAPTIONS
-from vectoreels.relevance import cosine_similarity, is_irrelevant_caption, to_bag_of_words
+from vectoreels.processing.irrelevant_captions import IRRELEVANT_CAPTIONS
+from vectoreels.processing.relevance import cosine_similarity, is_irrelevant_caption, to_bag_of_words
 
 
 def test_to_bag_of_words_lowercases_and_counts_repeated_words() -> None:

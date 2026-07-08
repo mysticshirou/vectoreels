@@ -1,7 +1,8 @@
 import re
 
 from vectoreels.models import GroupedLabelValue, LikedPost, ProcessedPost, SimpleLabelValue
-from vectoreels.relevance import is_irrelevant_caption
+from vectoreels.processing.ownership import find_single_account_captions
+from vectoreels.processing.relevance import is_irrelevant_caption
 
 LabelValue = SimpleLabelValue | GroupedLabelValue
 
@@ -23,6 +24,17 @@ def extract_caption(label_values: list[LabelValue]) -> str:
     return ""
 
 
+def extract_owner_username(label_values: list[LabelValue]) -> str:
+    for lv in label_values:
+        if isinstance(lv, GroupedLabelValue) and lv.title == "Owner":
+            for group in lv.items:
+                if isinstance(group, GroupedLabelValue):
+                    for inner in group.items:
+                        if isinstance(inner, SimpleLabelValue) and inner.label == "Username":
+                            return inner.value
+    return ""
+
+
 def extract_hashtags(label_values: list[LabelValue]) -> list[str]:
     for lv in label_values:
         if isinstance(lv, GroupedLabelValue) and lv.title == "Hashtags":
@@ -41,10 +53,12 @@ def clean_caption(caption: str) -> str:
     return _EXTRA_SPACES.sub(" ", without_hashtags).strip()
 
 
-def process_post(post: LikedPost) -> ProcessedPost:
+def process_post(
+    post: LikedPost, single_account_captions: frozenset[str] = frozenset()
+) -> ProcessedPost:
     caption = clean_caption(extract_caption(post.label_values))
     hashtags = extract_hashtags(post.label_values)
-    if is_irrelevant_caption(caption):
+    if is_irrelevant_caption(caption) and caption not in single_account_captions:
         caption = None
         hashtags = []
     return ProcessedPost(
@@ -57,4 +71,9 @@ def process_post(post: LikedPost) -> ProcessedPost:
 
 
 def process_posts(posts: list[LikedPost]) -> list[ProcessedPost]:
-    return [process_post(post) for post in posts]
+    caption_owner_pairs = (
+        (clean_caption(extract_caption(post.label_values)), extract_owner_username(post.label_values))
+        for post in posts
+    )
+    single_account_captions = frozenset(find_single_account_captions(caption_owner_pairs))
+    return [process_post(post, single_account_captions) for post in posts]

@@ -4,7 +4,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 
 from vectoreels.models import ProcessedPost, SearchFilters
-from vectoreels.query import build_search_query
+from vectoreels.search.query import build_search_query
 
 INDEX_NAME = "reels"
 

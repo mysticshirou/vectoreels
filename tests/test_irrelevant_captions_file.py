@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from vectoreels.irrelevant_captions_file import read_captions_file, write_captions_file
+from vectoreels.processing.irrelevant_captions_file import read_captions_file, write_captions_file
 
 
 def test_read_captions_file_reads_one_caption_per_line(tmp_path: Path) -> None:

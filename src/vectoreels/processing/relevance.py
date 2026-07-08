@@ -3,7 +3,7 @@ import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
-from vectoreels.irrelevant_captions import IRRELEVANT_CAPTIONS
+from vectoreels.processing.irrelevant_captions import IRRELEVANT_CAPTIONS
 
 DEFAULT_THRESHOLD = 0.95
 

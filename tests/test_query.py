@@ -1,5 +1,5 @@
 from vectoreels.models import SearchFilters
-from vectoreels.query import build_search_query, parse_date_to_epoch, to_search_filters
+from vectoreels.search.query import build_search_query, parse_date_to_epoch, to_search_filters
 
 
 def test_build_search_query_with_no_filters_matches_all() -> None:

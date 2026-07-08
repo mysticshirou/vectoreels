@@ -6,7 +6,7 @@ dataset upload.
 
 from pathlib import Path
 
-from vectoreels.irrelevant_captions_file import read_captions_file
+from vectoreels.processing.irrelevant_captions_file import read_captions_file
 
 _CAPTIONS_FILE = Path(__file__).parent / "irrelevant_captions.txt"
 

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from vectoreels.ingest import parse_liked_posts, read_liked_posts
+from vectoreels.ingestion.ingest import parse_liked_posts, read_liked_posts
 
 RAW_POST = {
     "timestamp": 1781236053,

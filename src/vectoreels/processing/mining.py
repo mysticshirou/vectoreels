@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 
-from vectoreels.relevance import tokenize
+from vectoreels.processing.relevance import tokenize
 
 BLOCK_PREFIX_LEN = 3
 
