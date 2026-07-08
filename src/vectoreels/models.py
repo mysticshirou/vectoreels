@@ -37,3 +37,4 @@ class SearchFilters(BaseModel):
     song: str | None = None
     date_from: int | None = None
     date_to: int | None = None
+    audio_embedding: list[float] | None = None

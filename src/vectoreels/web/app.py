@@ -5,13 +5,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from elasticsearch import Elasticsearch
-from fastapi import FastAPI, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from vectoreels.download.music import get_music_title
 from vectoreels.embedding.audio import ClapAudioEmbedder, embed_reel_audio
+from vectoreels.embedding.decode import decode_audio_to_waveform
 from vectoreels.ingestion.ingest import parse_liked_posts
 from vectoreels.processing.process import AudioEmbeddingLookup, MusicTitleLookup, process_posts
 from vectoreels.search.query import to_search_filters
@@ -76,13 +77,21 @@ async def search(
     song: str = Form(default=""),
     date_from: str = Form(default=""),
     date_to: str = Form(default=""),
+    audio_file: UploadFile | None = File(default=None),
 ) -> HTMLResponse:
+    audio_embedding = None
+    if audio_file is not None and audio_file.filename:
+        audio_bytes = await audio_file.read()
+        waveform = decode_audio_to_waveform(audio_bytes)
+        audio_embedding = request.app.state.audio_embedder.embed(waveform)
+
     filters = to_search_filters(
         keywords=[k for k in keywords if k],
         description=description,
         song=song,
         date_from=date_from,
         date_to=date_to,
+        audio_embedding=audio_embedding,
     )
     posts = search_posts(request.app.state.es_client, filters)
     return templates.TemplateResponse(request, "_results.html", {"posts": posts})

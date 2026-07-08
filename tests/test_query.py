@@ -41,6 +41,43 @@ def test_build_search_query_with_only_date_from() -> None:
     }
 
 
+def test_build_search_query_with_audio_embedding_uses_knn() -> None:
+    query = build_search_query(SearchFilters(audio_embedding=[0.1, 0.2, 0.3]))
+    assert query == {
+        "knn": {
+            "field": "audio_embedding",
+            "query_vector": [0.1, 0.2, 0.3],
+            "k": 20,
+            "num_candidates": 100,
+        }
+    }
+
+
+def test_build_search_query_with_audio_embedding_and_keywords_filters_knn() -> None:
+    query = build_search_query(SearchFilters(audio_embedding=[0.1, 0.2], keywords=["space"]))
+    assert query == {
+        "knn": {
+            "field": "audio_embedding",
+            "query_vector": [0.1, 0.2],
+            "k": 20,
+            "num_candidates": 100,
+            "filter": [{"terms": {"hashtags": ["space"]}}],
+        }
+    }
+
+
+def test_build_search_query_with_audio_embedding_ignores_text_filters() -> None:
+    query = build_search_query(SearchFilters(audio_embedding=[0.1], description="stars", song="Phonk"))
+    assert query == {
+        "knn": {
+            "field": "audio_embedding",
+            "query_vector": [0.1],
+            "k": 20,
+            "num_candidates": 100,
+        }
+    }
+
+
 def test_build_search_query_combines_all_filters() -> None:
     query = build_search_query(
         SearchFilters(keywords=["space"], description="stars", date_from=100, date_to=200)

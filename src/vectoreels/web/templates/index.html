@@ -13,12 +13,15 @@
 
   <fieldset>
     <legend>Search</legend>
-    <form hx-post="/search" hx-target="#results" hx-swap="innerHTML" x-data="{ keywords: [], newKeyword: '' }">
+    <form hx-post="/search" hx-target="#results" hx-swap="innerHTML" hx-encoding="multipart/form-data" x-data="{ keywords: [], newKeyword: '' }">
       <label for="description">Description (matches caption)</label>
       <input type="text" id="description" name="description" placeholder="e.g. a shoebill stork">
 
       <label for="song">Song name</label>
       <input type="text" id="song" name="song" placeholder="e.g. Miguel Phonk">
+
+      <label for="audio_file">Find reels with similar audio</label>
+      <input type="file" id="audio_file" name="audio_file" accept="audio/*,video/*">
 
       <label for="date_from">From date</label>
       <input type="date" id="date_from" name="date_from">

@@ -16,6 +16,7 @@ def to_search_filters(
     date_from: str | None,
     date_to: str | None,
     song: str | None = None,
+    audio_embedding: list[float] | None = None,
 ) -> SearchFilters:
     return SearchFilters(
         keywords=keywords,
@@ -23,7 +24,12 @@ def to_search_filters(
         song=song or None,
         date_from=parse_date_to_epoch(date_from) if date_from else None,
         date_to=parse_date_to_epoch(date_to, end_of_day=True) if date_to else None,
+        audio_embedding=audio_embedding,
     )
+
+
+_KNN_K = 20
+_KNN_NUM_CANDIDATES = 100
 
 
 def build_search_query(filters: SearchFilters) -> dict[str, object]:
@@ -48,6 +54,20 @@ def build_search_query(filters: SearchFilters) -> dict[str, object]:
         if filters.date_to is not None:
             date_range["lte"] = str(filters.date_to)
         filter_.append({"range": {"timestamp": date_range}})
+
+    if filters.audio_embedding is not None:
+        # Audio similarity search takes over as the ranking signal; text match
+        # clauses (description/song) don't compose with it, so only the
+        # filter-context clauses (hashtags/date) carry over.
+        knn: dict[str, object] = {
+            "field": "audio_embedding",
+            "query_vector": filters.audio_embedding,
+            "k": _KNN_K,
+            "num_candidates": _KNN_NUM_CANDIDATES,
+        }
+        if filter_:
+            knn["filter"] = filter_
+        return {"knn": knn}
 
     if not must and not filter_:
         return {"query": {"match_all": {}}}
