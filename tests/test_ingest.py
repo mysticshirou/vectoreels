@@ -46,3 +46,32 @@ def test_parse_liked_posts_parses_json_bytes() -> None:
 
     assert len(posts) == 1
     assert posts[0].fbid == "18001694510933948"
+
+
+def test_parse_liked_posts_fixes_meta_export_mojibake() -> None:
+    # Meta's export tool writes UTF-8 bytes as if each byte were a Latin-1
+    # code point, corrupting any non-ASCII text (emoji, accents, CJK, etc).
+    correct_caption = "🎬 café — 日本"
+    corrupted_caption = correct_caption.encode("utf-8").decode("latin-1")
+    post = {**RAW_POST, "label_values": [
+        {"label": "URL", "value": "https://www.instagram.com/reel/abc/"},
+        {"label": "Caption", "value": corrupted_caption},
+    ]}
+
+    posts = parse_liked_posts(json.dumps([post]).encode())
+
+    captions = [lv.value for lv in posts[0].label_values if lv.label == "Caption"]
+    assert captions == [correct_caption]
+
+
+def test_parse_liked_posts_leaves_correctly_encoded_text_unchanged() -> None:
+    correct_caption = "plain ascii caption"
+    post = {**RAW_POST, "label_values": [
+        {"label": "URL", "value": "https://www.instagram.com/reel/abc/"},
+        {"label": "Caption", "value": correct_caption},
+    ]}
+
+    posts = parse_liked_posts(json.dumps([post]).encode())
+
+    captions = [lv.value for lv in posts[0].label_values if lv.label == "Caption"]
+    assert captions == [correct_caption]

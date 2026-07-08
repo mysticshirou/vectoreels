@@ -1,6 +1,7 @@
 import re
 
 from vectoreels.models import GroupedLabelValue, LikedPost, ProcessedPost, SimpleLabelValue
+from vectoreels.relevance import is_irrelevant_caption
 
 LabelValue = SimpleLabelValue | GroupedLabelValue
 
@@ -41,12 +42,17 @@ def clean_caption(caption: str) -> str:
 
 
 def process_post(post: LikedPost) -> ProcessedPost:
+    caption = clean_caption(extract_caption(post.label_values))
+    hashtags = extract_hashtags(post.label_values)
+    if is_irrelevant_caption(caption):
+        caption = None
+        hashtags = []
     return ProcessedPost(
         fbid=post.fbid,
         timestamp=post.timestamp,
         url=extract_url(post.label_values),
-        caption=clean_caption(extract_caption(post.label_values)),
-        hashtags=extract_hashtags(post.label_values),
+        caption=caption,
+        hashtags=hashtags,
     )
 
 

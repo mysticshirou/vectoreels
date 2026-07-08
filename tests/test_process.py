@@ -1,5 +1,6 @@
 import pytest
 
+from vectoreels.irrelevant_captions import IRRELEVANT_CAPTIONS
 from vectoreels.models import GroupedLabelValue, LikedPost, ProcessedPost, SimpleLabelValue
 from vectoreels.process import (
     clean_caption,
@@ -93,6 +94,24 @@ def test_process_post_assembles_processed_post() -> None:
         caption="levels to ts",
         hashtags=["fyp", "astronomy"],
     )
+
+
+def test_process_post_nulls_out_caption_and_hashtags_when_caption_is_irrelevant() -> None:
+    post = LikedPost(
+        timestamp=123,
+        media=[],
+        fbid="fb1",
+        label_values=[
+            _simple("URL", "https://www.instagram.com/reel/abc/"),
+            _simple("Caption", IRRELEVANT_CAPTIONS[0] + " #fyp #space"),
+            _hashtags("fyp", "space"),
+        ],
+    )
+
+    result = process_post(post)
+
+    assert result.caption is None
+    assert result.hashtags == []
 
 
 def test_process_posts_maps_over_all_posts() -> None:

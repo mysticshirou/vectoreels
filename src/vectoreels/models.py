@@ -25,7 +25,7 @@ class ProcessedPost(BaseModel):
     fbid: str = Field(min_length=1)
     timestamp: int
     url: str = Field(min_length=1)
-    caption: str
+    caption: str | None
     hashtags: list[str]
 
 
