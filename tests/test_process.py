@@ -268,3 +268,40 @@ def test_process_posts_attaches_audio_embedding_from_injected_lookup() -> None:
     result = process_posts(posts, audio_embedding_lookup=embeddings_by_url.get)
 
     assert [p.audio_embedding for p in result] == [[1.0, 0.0], None, [0.0, 1.0]]
+
+
+def test_process_posts_reports_only_caption_stage_without_lookups() -> None:
+    post = LikedPost(
+        timestamp=1,
+        media=[],
+        fbid="fb1",
+        label_values=[_simple("URL", "https://www.instagram.com/reel/abc/")],
+    )
+    stages: list[str] = []
+
+    process_posts([post], on_stage=stages.append)
+
+    assert stages == ["Cleaning captions and hashtags"]
+
+
+def test_process_posts_reports_a_stage_per_active_lookup() -> None:
+    post = LikedPost(
+        timestamp=1,
+        media=[],
+        fbid="fb1",
+        label_values=[_simple("URL", "https://www.instagram.com/reel/abc/")],
+    )
+    stages: list[str] = []
+
+    process_posts(
+        [post],
+        music_title_lookup=lambda url: None,
+        audio_embedding_lookup=lambda url: None,
+        on_stage=stages.append,
+    )
+
+    assert stages == [
+        "Cleaning captions and hashtags",
+        "Looking up song titles",
+        "Downloading and embedding audio",
+    ]

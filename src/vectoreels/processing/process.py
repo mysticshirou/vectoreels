@@ -8,6 +8,7 @@ from vectoreels.processing.relevance import is_irrelevant_caption
 
 MusicTitleLookup = Callable[[str], str | None]
 AudioEmbeddingLookup = Callable[[str], list[float] | None]
+StageReporter = Callable[[str], None]
 
 _MUSIC_LOOKUP_WORKERS = 16
 _AUDIO_EMBEDDING_WORKERS = 2
@@ -82,7 +83,13 @@ def process_posts(
     posts: list[LikedPost],
     music_title_lookup: MusicTitleLookup | None = None,
     audio_embedding_lookup: AudioEmbeddingLookup | None = None,
+    on_stage: StageReporter | None = None,
 ) -> list[ProcessedPost]:
+    def report(stage: str) -> None:
+        if on_stage is not None:
+            on_stage(stage)
+
+    report("Cleaning captions and hashtags")
     caption_owner_pairs = (
         (clean_caption(extract_caption(post.label_values)), extract_owner_username(post.label_values))
         for post in posts
@@ -91,6 +98,7 @@ def process_posts(
     processed = [process_post(post, single_account_captions) for post in posts]
 
     if music_title_lookup is not None:
+        report("Looking up song titles")
         with ThreadPoolExecutor(max_workers=_MUSIC_LOOKUP_WORKERS) as executor:
             titles = executor.map(music_title_lookup, (post.url for post in processed))
             processed = [
@@ -99,6 +107,7 @@ def process_posts(
             ]
 
     if audio_embedding_lookup is not None:
+        report("Downloading and embedding audio")
         with ThreadPoolExecutor(max_workers=_AUDIO_EMBEDDING_WORKERS) as executor:
             embeddings = executor.map(audio_embedding_lookup, (post.url for post in processed))
             processed = [

@@ -1,1 +1,7 @@
+{% if done %}
 <p>Indexed {{ count }} posts.</p>
+{% else %}
+<div id="upload-progress" hx-get="/upload/status" hx-trigger="load, every 1s" hx-swap="outerHTML">
+  <p>{{ stage }}</p>
+</div>
+{% endif %}

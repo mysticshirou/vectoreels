@@ -1,5 +1,6 @@
 import functools
 import os
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -34,6 +35,27 @@ def _build_audio_embedding_lookup(embedder: ClapAudioEmbedder) -> AudioEmbedding
     return functools.partial(embed_reel_audio, embedder=embedder, cookiefile=INSTAGRAM_COOKIES_PATH)
 
 
+class UploadStatus:
+    def __init__(self) -> None:
+        self.stage: str | None = None
+        self.count: int | None = None
+
+
+def _run_upload(app: FastAPI, raw: bytes) -> None:
+    status: UploadStatus = app.state.upload_status
+    status.stage = "Parsing liked_posts.json"
+    posts = parse_liked_posts(raw)
+    processed = process_posts(
+        posts,
+        music_title_lookup=_build_music_title_lookup(),
+        audio_embedding_lookup=_build_audio_embedding_lookup(app.state.audio_embedder),
+        on_stage=lambda stage: setattr(status, "stage", stage),
+    )
+    status.stage = "Indexing into Elasticsearch"
+    index_posts(app.state.es_client, processed)
+    status.count = len(processed)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     client = Elasticsearch(ELASTICSEARCH_URL)
@@ -57,15 +79,22 @@ async def index(request: Request) -> HTMLResponse:
 @app.post("/upload", response_class=HTMLResponse)
 async def upload(request: Request, file: UploadFile) -> HTMLResponse:
     raw = await file.read()
-    posts = parse_liked_posts(raw)
-    processed = process_posts(
-        posts,
-        music_title_lookup=_build_music_title_lookup(),
-        audio_embedding_lookup=_build_audio_embedding_lookup(request.app.state.audio_embedder),
-    )
-    index_posts(request.app.state.es_client, processed)
+    request.app.state.upload_status = UploadStatus()
+    threading.Thread(target=_run_upload, args=(request.app, raw), daemon=True).start()
     return templates.TemplateResponse(
-        request, "_upload_status.html", {"count": len(processed)}
+        request, "_upload_status.html", {"stage": "Starting…", "done": False}
+    )
+
+
+@app.get("/upload/status", response_class=HTMLResponse)
+async def upload_status(request: Request) -> HTMLResponse:
+    status: UploadStatus = request.app.state.upload_status
+    if status.count is not None:
+        return templates.TemplateResponse(
+            request, "_upload_status.html", {"count": status.count, "done": True}
+        )
+    return templates.TemplateResponse(
+        request, "_upload_status.html", {"stage": status.stage, "done": False}
     )
 
 
