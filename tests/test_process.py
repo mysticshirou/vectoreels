@@ -235,3 +235,36 @@ def test_process_posts_attaches_music_title_from_injected_lookup() -> None:
     result = process_posts(posts, music_title_lookup=titles_by_url.get)
 
     assert [p.music_title for p in result] == ["Song A", None, "Song B"]
+
+
+def test_process_posts_leaves_audio_embedding_none_without_a_lookup() -> None:
+    post = LikedPost(
+        timestamp=1,
+        media=[],
+        fbid="fb1",
+        label_values=[_simple("URL", "https://www.instagram.com/reel/abc/")],
+    )
+
+    result = process_posts([post])
+
+    assert result[0].audio_embedding is None
+
+
+def test_process_posts_attaches_audio_embedding_from_injected_lookup() -> None:
+    posts = [
+        LikedPost(
+            timestamp=i,
+            media=[],
+            fbid=f"fb{i}",
+            label_values=[_simple("URL", f"https://www.instagram.com/reel/{i}/")],
+        )
+        for i in range(3)
+    ]
+    embeddings_by_url = {
+        "https://www.instagram.com/reel/0/": [1.0, 0.0],
+        "https://www.instagram.com/reel/2/": [0.0, 1.0],
+    }
+
+    result = process_posts(posts, audio_embedding_lookup=embeddings_by_url.get)
+
+    assert [p.audio_embedding for p in result] == [[1.0, 0.0], None, [0.0, 1.0]]

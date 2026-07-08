@@ -28,6 +28,7 @@ class ProcessedPost(BaseModel):
     caption: str | None
     hashtags: list[str]
     music_title: str | None = None
+    audio_embedding: list[float] | None = None
 
 
 class SearchFilters(BaseModel):

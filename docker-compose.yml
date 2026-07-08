@@ -21,14 +21,17 @@ services:
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - INSTAGRAM_COOKIES_PATH=/app/cookies.txt
+      - CLAP_CHECKPOINT_CACHE_DIR=/app/clap-checkpoint
     ports:
       - "8000:8000"
     volumes:
       - ./src:/app/src
       - ./cookies.txt:/app/cookies.txt
+      - clap-checkpoint:/app/clap-checkpoint
     depends_on:
       elasticsearch:
         condition: service_healthy
 
 volumes:
   esdata:
+  clap-checkpoint:

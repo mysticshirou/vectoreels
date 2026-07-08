@@ -11,14 +11,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from vectoreels.download.music import get_music_title
+from vectoreels.embedding.audio import ClapAudioEmbedder, embed_reel_audio
 from vectoreels.ingestion.ingest import parse_liked_posts
-from vectoreels.processing.process import MusicTitleLookup, process_posts
+from vectoreels.processing.process import AudioEmbeddingLookup, MusicTitleLookup, process_posts
 from vectoreels.search.query import to_search_filters
 from vectoreels.search.search import ensure_index, index_posts, search_posts
 
 PACKAGE_DIR = Path(__file__).parent
 ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", "http://localhost:9200")
 INSTAGRAM_COOKIES_PATH = os.environ.get("INSTAGRAM_COOKIES_PATH")
+CLAP_CHECKPOINT_CACHE_DIR = os.environ.get("CLAP_CHECKPOINT_CACHE_DIR")
 
 
 def _build_music_title_lookup() -> MusicTitleLookup | None:
@@ -27,11 +29,16 @@ def _build_music_title_lookup() -> MusicTitleLookup | None:
     return functools.partial(get_music_title, cookiefile=INSTAGRAM_COOKIES_PATH)
 
 
+def _build_audio_embedding_lookup(embedder: ClapAudioEmbedder) -> AudioEmbeddingLookup:
+    return functools.partial(embed_reel_audio, embedder=embedder, cookiefile=INSTAGRAM_COOKIES_PATH)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     client = Elasticsearch(ELASTICSEARCH_URL)
     ensure_index(client)
     app.state.es_client = client
+    app.state.audio_embedder = ClapAudioEmbedder(checkpoint_cache_dir=CLAP_CHECKPOINT_CACHE_DIR)
     yield
     client.close()
 
@@ -50,7 +57,11 @@ async def index(request: Request) -> HTMLResponse:
 async def upload(request: Request, file: UploadFile) -> HTMLResponse:
     raw = await file.read()
     posts = parse_liked_posts(raw)
-    processed = process_posts(posts, music_title_lookup=_build_music_title_lookup())
+    processed = process_posts(
+        posts,
+        music_title_lookup=_build_music_title_lookup(),
+        audio_embedding_lookup=_build_audio_embedding_lookup(request.app.state.audio_embedder),
+    )
     index_posts(request.app.state.es_client, processed)
     return templates.TemplateResponse(
         request, "_upload_status.html", {"count": len(processed)}

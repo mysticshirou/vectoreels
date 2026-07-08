@@ -16,6 +16,12 @@ INDEX_MAPPING = {
         "caption": {"type": "text"},
         "hashtags": {"type": "keyword"},
         "music_title": {"type": "text"},
+        "audio_embedding": {
+            "type": "dense_vector",
+            "dims": 512,
+            "index": True,
+            "similarity": "cosine",
+        },
     }
 }
 

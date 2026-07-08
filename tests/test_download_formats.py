@@ -3,6 +3,7 @@ from vectoreels.download.formats import (
     select_best_audio_format,
     select_best_picture_url,
     select_best_video_format,
+    select_music_download_url,
     select_music_title,
 )
 
@@ -77,3 +78,32 @@ def test_select_music_title_returns_none_when_music_info_is_none() -> None:
     # e.g. non-licensed "original audio" posts, which carry original_sound_info instead
     entry = {"music_metadata": {"music_info": None, "original_sound_info": None}}
     assert select_music_title(entry) is None
+
+
+def test_select_music_download_url_prefers_progressive_download_url() -> None:
+    entry = {
+        "music_metadata": {
+            "music_info": {
+                "music_asset_info": {
+                    "progressive_download_url": "https://cdn/song.mp4",
+                    "fast_start_progressive_download_url": "https://cdn/song-fast.mp4",
+                }
+            }
+        }
+    }
+    assert select_music_download_url(entry) == "https://cdn/song.mp4"
+
+
+def test_select_music_download_url_falls_back_to_fast_start_url() -> None:
+    entry = {
+        "music_metadata": {
+            "music_info": {
+                "music_asset_info": {"fast_start_progressive_download_url": "https://cdn/song-fast.mp4"}
+            }
+        }
+    }
+    assert select_music_download_url(entry) == "https://cdn/song-fast.mp4"
+
+
+def test_select_music_download_url_returns_none_when_no_music_metadata() -> None:
+    assert select_music_download_url({}) is None

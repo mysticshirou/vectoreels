@@ -41,3 +41,12 @@ def select_music_title(entry: dict[str, Any]) -> str | None:
     music_info = music_metadata.get("music_info") or {}
     asset_info = music_info.get("music_asset_info") or {}
     return asset_info.get("title") or None
+
+
+def select_music_download_url(entry: dict[str, Any]) -> str | None:
+    music_metadata = entry.get("music_metadata") or {}
+    music_info = music_metadata.get("music_info") or {}
+    asset_info = music_info.get("music_asset_info") or {}
+    return asset_info.get("progressive_download_url") or asset_info.get(
+        "fast_start_progressive_download_url"
+    ) or None

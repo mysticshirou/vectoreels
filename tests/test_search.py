@@ -24,6 +24,7 @@ def test_to_bulk_actions_uses_fbid_as_document_id() -> None:
                 "caption": "hello",
                 "hashtags": ["a", "b"],
                 "music_title": None,
+                "audio_embedding": None,
             },
         }
     ]

@@ -7,8 +7,10 @@ from vectoreels.processing.ownership import find_single_account_captions
 from vectoreels.processing.relevance import is_irrelevant_caption
 
 MusicTitleLookup = Callable[[str], str | None]
+AudioEmbeddingLookup = Callable[[str], list[float] | None]
 
 _MUSIC_LOOKUP_WORKERS = 16
+_AUDIO_EMBEDDING_WORKERS = 2
 
 LabelValue = SimpleLabelValue | GroupedLabelValue
 
@@ -77,7 +79,9 @@ def process_post(
 
 
 def process_posts(
-    posts: list[LikedPost], music_title_lookup: MusicTitleLookup | None = None
+    posts: list[LikedPost],
+    music_title_lookup: MusicTitleLookup | None = None,
+    audio_embedding_lookup: AudioEmbeddingLookup | None = None,
 ) -> list[ProcessedPost]:
     caption_owner_pairs = (
         (clean_caption(extract_caption(post.label_values)), extract_owner_username(post.label_values))
@@ -92,6 +96,14 @@ def process_posts(
             processed = [
                 post.model_copy(update={"music_title": title})
                 for post, title in zip(processed, titles, strict=True)
+            ]
+
+    if audio_embedding_lookup is not None:
+        with ThreadPoolExecutor(max_workers=_AUDIO_EMBEDDING_WORKERS) as executor:
+            embeddings = executor.map(audio_embedding_lookup, (post.url for post in processed))
+            processed = [
+                post.model_copy(update={"audio_embedding": embedding})
+                for post, embedding in zip(processed, embeddings, strict=True)
             ]
 
     return processed
