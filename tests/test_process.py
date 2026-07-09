@@ -303,5 +303,26 @@ def test_process_posts_reports_a_stage_per_active_lookup() -> None:
     assert stages == [
         "Cleaning captions and hashtags",
         "Looking up song titles",
+        "Looking up song titles (1/1)",
         "Downloading and embedding audio",
+        "Downloading and embedding audio (1/1)",
     ]
+
+
+def test_process_posts_reports_progress_per_completed_lookup() -> None:
+    posts = [
+        LikedPost(
+            timestamp=i,
+            media=[],
+            fbid=f"fb{i}",
+            label_values=[_simple("URL", f"https://www.instagram.com/reel/{i}/")],
+        )
+        for i in range(5)
+    ]
+    stages: list[str] = []
+
+    process_posts(posts, music_title_lookup=lambda url: None, on_stage=stages.append)
+
+    progress = [s for s in stages if s.startswith("Looking up song titles (")]
+    counts = sorted(int(s.split("(")[1].split("/")[0]) for s in progress)
+    assert counts == [1, 2, 3, 4, 5]

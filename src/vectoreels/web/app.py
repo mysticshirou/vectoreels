@@ -1,4 +1,5 @@
 import functools
+import logging
 import os
 import threading
 from collections.abc import AsyncIterator
@@ -18,6 +19,9 @@ from vectoreels.ingestion.ingest import parse_liked_posts
 from vectoreels.processing.process import AudioEmbeddingLookup, MusicTitleLookup, process_posts
 from vectoreels.search.query import to_search_filters
 from vectoreels.search.search import ensure_index, index_posts, search_posts
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+logger = logging.getLogger("vectoreels.upload")
 
 PACKAGE_DIR = Path(__file__).parent
 ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", "http://localhost:9200")
@@ -41,19 +45,25 @@ class UploadStatus:
         self.count: int | None = None
 
 
+def _report_stage(status: UploadStatus, stage: str) -> None:
+    status.stage = stage
+    logger.info(stage)
+
+
 def _run_upload(app: FastAPI, raw: bytes) -> None:
     status: UploadStatus = app.state.upload_status
-    status.stage = "Parsing liked_posts.json"
+    _report_stage(status, "Parsing liked_posts.json")
     posts = parse_liked_posts(raw)
     processed = process_posts(
         posts,
         music_title_lookup=_build_music_title_lookup(),
         audio_embedding_lookup=_build_audio_embedding_lookup(app.state.audio_embedder),
-        on_stage=lambda stage: setattr(status, "stage", stage),
+        on_stage=functools.partial(_report_stage, status),
     )
-    status.stage = "Indexing into Elasticsearch"
+    _report_stage(status, "Indexing into Elasticsearch")
     index_posts(app.state.es_client, processed)
     status.count = len(processed)
+    logger.info("Indexed %d posts", status.count)
 
 
 @asynccontextmanager

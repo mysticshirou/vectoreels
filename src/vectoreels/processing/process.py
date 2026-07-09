@@ -1,6 +1,9 @@
+import itertools
 import re
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from typing import TypeVar
 
 from vectoreels.models import GroupedLabelValue, LikedPost, ProcessedPost, SimpleLabelValue
 from vectoreels.processing.ownership import find_single_account_captions
@@ -14,6 +17,28 @@ _MUSIC_LOOKUP_WORKERS = 16
 _AUDIO_EMBEDDING_WORKERS = 2
 
 LabelValue = SimpleLabelValue | GroupedLabelValue
+
+_T = TypeVar("_T")
+
+
+def _with_progress(
+    lookup: Callable[[str], _T], total: int, stage_label: str, report: StageReporter
+) -> Callable[[str], _T]:
+    """Wraps a lookup so each completed call reports "{stage_label} (n/total)",
+    letting a slow per-item stage (e.g. song lookups over many posts) surface
+    live progress through the same on_stage seam instead of one static message.
+    """
+    counter = itertools.count(1)
+    lock = threading.Lock()
+
+    def wrapped(url: str) -> _T:
+        result = lookup(url)
+        with lock:
+            done = next(counter)
+        report(f"{stage_label} ({done}/{total})")
+        return result
+
+    return wrapped
 
 _HASHTAG_TOKEN = re.compile(r"#\w+", re.UNICODE)
 _EXTRA_SPACES = re.compile(r"[ \t]{2,}")
@@ -99,8 +124,11 @@ def process_posts(
 
     if music_title_lookup is not None:
         report("Looking up song titles")
+        tracked_lookup = _with_progress(
+            music_title_lookup, len(processed), "Looking up song titles", report
+        )
         with ThreadPoolExecutor(max_workers=_MUSIC_LOOKUP_WORKERS) as executor:
-            titles = executor.map(music_title_lookup, (post.url for post in processed))
+            titles = executor.map(tracked_lookup, (post.url for post in processed))
             processed = [
                 post.model_copy(update={"music_title": title})
                 for post, title in zip(processed, titles, strict=True)
@@ -108,8 +136,11 @@ def process_posts(
 
     if audio_embedding_lookup is not None:
         report("Downloading and embedding audio")
+        tracked_lookup = _with_progress(
+            audio_embedding_lookup, len(processed), "Downloading and embedding audio", report
+        )
         with ThreadPoolExecutor(max_workers=_AUDIO_EMBEDDING_WORKERS) as executor:
-            embeddings = executor.map(audio_embedding_lookup, (post.url for post in processed))
+            embeddings = executor.map(tracked_lookup, (post.url for post in processed))
             processed = [
                 post.model_copy(update={"audio_embedding": embedding})
                 for post, embedding in zip(processed, embeddings, strict=True)
