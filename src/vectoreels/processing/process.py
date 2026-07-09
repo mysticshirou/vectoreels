@@ -1,11 +1,17 @@
-import itertools
 import re
-import threading
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
-from typing import TypeVar
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Protocol, TypeVar
 
-from vectoreels.models import GroupedLabelValue, LikedPost, ProcessedPost, SimpleLabelValue
+from vectoreels.models import (
+    STAGE_CLEANED,
+    STAGE_EMBEDDED,
+    STAGE_TITLED,
+    GroupedLabelValue,
+    LikedPost,
+    ProcessedPost,
+    SimpleLabelValue,
+)
 from vectoreels.processing.ownership import find_single_account_captions
 from vectoreels.processing.relevance import is_irrelevant_caption
 
@@ -21,24 +27,16 @@ LabelValue = SimpleLabelValue | GroupedLabelValue
 _T = TypeVar("_T")
 
 
-def _with_progress(
-    lookup: Callable[[str], _T], total: int, stage_label: str, report: StageReporter
-) -> Callable[[str], _T]:
-    """Wraps a lookup so each completed call reports "{stage_label} (n/total)",
-    letting a slow per-item stage (e.g. song lookups over many posts) surface
-    live progress through the same on_stage seam instead of one static message.
-    """
-    counter = itertools.count(1)
-    lock = threading.Lock()
+class StageIndex(Protocol):
+    """The Elasticsearch-backed seam process_and_index_posts is driven
+    through: which fbids are already indexed, persisting field updates for
+    a batch, and reading back everything sitting at a given stage (from
+    this run or a prior one) so a stage's work only ever runs once."""
 
-    def wrapped(url: str) -> _T:
-        result = lookup(url)
-        with lock:
-            done = next(counter)
-        report(f"{stage_label} ({done}/{total})")
-        return result
+    def existing_fbids(self, fbids: list[str]) -> set[str]: ...
+    def bulk_upsert(self, updates: list[dict[str, Any]]) -> None: ...
+    def posts_at_stage(self, stage: int) -> list[ProcessedPost]: ...
 
-    return wrapped
 
 _HASHTAG_TOKEN = re.compile(r"#\w+", re.UNICODE)
 _EXTRA_SPACES = re.compile(r"[ \t]{2,}")
@@ -104,12 +102,52 @@ def process_post(
     )
 
 
-def process_posts(
+def _advance_stage(
+    index: StageIndex,
+    from_stage: int,
+    to_stage: int,
+    lookup: Callable[[str], _T],
+    field_name: str,
+    stage_label: str,
+    report: StageReporter,
+    workers: int,
+) -> None:
+    """Looks up `field_name` for every post still at `from_stage` (whether
+    left there by this run or an earlier one) and upserts each result the
+    moment it's ready, batched at the pool's width so a crash mid-stage
+    only ever loses an in-flight batch, not the whole stage."""
+    posts = index.posts_at_stage(from_stage)
+    if not posts:
+        return
+
+    report(stage_label)
+    total = len(posts)
+    batch: list[dict[str, Any]] = []
+
+    def flush() -> None:
+        if batch:
+            index.bulk_upsert(list(batch))
+            batch.clear()
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(lookup, post.url): post for post in posts}
+        for done, future in enumerate(as_completed(futures), start=1):
+            post = futures[future]
+            batch.append({"fbid": post.fbid, field_name: future.result(), "stage": to_stage})
+            report(f"{stage_label} ({done}/{total})")
+            if len(batch) >= workers:
+                flush()
+
+    flush()
+
+
+def process_and_index_posts(
     posts: list[LikedPost],
+    index: StageIndex,
     music_title_lookup: MusicTitleLookup | None = None,
     audio_embedding_lookup: AudioEmbeddingLookup | None = None,
     on_stage: StageReporter | None = None,
-) -> list[ProcessedPost]:
+) -> None:
     def report(stage: str) -> None:
         if on_stage is not None:
             on_stage(stage)
@@ -122,28 +160,32 @@ def process_posts(
     single_account_captions = frozenset(find_single_account_captions(caption_owner_pairs))
     processed = [process_post(post, single_account_captions) for post in posts]
 
+    existing = index.existing_fbids([post.fbid for post in processed])
+    new_posts = [post for post in processed if post.fbid not in existing]
+    if new_posts:
+        report(f"Indexing {len(new_posts)} new posts")
+        index.bulk_upsert([post.model_dump() for post in new_posts])
+
     if music_title_lookup is not None:
-        report("Looking up song titles")
-        tracked_lookup = _with_progress(
-            music_title_lookup, len(processed), "Looking up song titles", report
+        _advance_stage(
+            index,
+            STAGE_CLEANED,
+            STAGE_TITLED,
+            music_title_lookup,
+            "music_title",
+            "Looking up song titles",
+            report,
+            _MUSIC_LOOKUP_WORKERS,
         )
-        with ThreadPoolExecutor(max_workers=_MUSIC_LOOKUP_WORKERS) as executor:
-            titles = executor.map(tracked_lookup, (post.url for post in processed))
-            processed = [
-                post.model_copy(update={"music_title": title})
-                for post, title in zip(processed, titles, strict=True)
-            ]
 
     if audio_embedding_lookup is not None:
-        report("Downloading and embedding audio")
-        tracked_lookup = _with_progress(
-            audio_embedding_lookup, len(processed), "Downloading and embedding audio", report
+        _advance_stage(
+            index,
+            STAGE_TITLED,
+            STAGE_EMBEDDED,
+            audio_embedding_lookup,
+            "audio_embedding",
+            "Downloading and embedding audio",
+            report,
+            _AUDIO_EMBEDDING_WORKERS,
         )
-        with ThreadPoolExecutor(max_workers=_AUDIO_EMBEDDING_WORKERS) as executor:
-            embeddings = executor.map(tracked_lookup, (post.url for post in processed))
-            processed = [
-                post.model_copy(update={"audio_embedding": embedding})
-                for post, embedding in zip(processed, embeddings, strict=True)
-            ]
-
-    return processed

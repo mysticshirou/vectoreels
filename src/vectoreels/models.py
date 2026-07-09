@@ -2,6 +2,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+STAGE_CLEANED = 1
+STAGE_TITLED = 2
+STAGE_EMBEDDED = 3
+
 
 class SimpleLabelValue(BaseModel):
     label: str
@@ -29,6 +33,7 @@ class ProcessedPost(BaseModel):
     hashtags: list[str]
     music_title: str | None = None
     audio_embedding: list[float] | None = None
+    stage: int = STAGE_CLEANED
 
 
 class SearchFilters(BaseModel):

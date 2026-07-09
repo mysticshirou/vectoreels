@@ -1,36 +1,38 @@
-from vectoreels.models import ProcessedPost
-from vectoreels.search.search import to_bulk_actions
+from vectoreels.search.search import _post_from_hit, to_upsert_actions
 
 
-def test_to_bulk_actions_uses_fbid_as_document_id() -> None:
-    post = ProcessedPost(
-        fbid="fb1",
-        timestamp=123,
-        url="https://www.instagram.com/reel/abc/",
-        caption="hello",
-        hashtags=["a", "b"],
-    )
+def test_post_from_hit_recovers_fbid_from_the_document_id() -> None:
+    hit = {
+        "_id": "fb1",
+        "_source": {
+            "timestamp": 1,
+            "url": "https://www.instagram.com/reel/abc/",
+            "caption": "hi",
+            "hashtags": [],
+            "music_title": None,
+            "audio_embedding": None,
+            "stage": 1,
+        },
+    }
 
-    actions = to_bulk_actions("reels", [post])
+    assert _post_from_hit(hit).fbid == "fb1"
+
+
+def test_to_upsert_actions_upserts_by_fbid() -> None:
+    actions = to_upsert_actions("reels", [{"fbid": "fb1", "stage": 2, "music_title": "Song"}])
 
     assert actions == [
         {
+            "_op_type": "update",
             "_index": "reels",
             "_id": "fb1",
-            "_source": {
-                "fbid": "fb1",
-                "timestamp": 123,
-                "url": "https://www.instagram.com/reel/abc/",
-                "caption": "hello",
-                "hashtags": ["a", "b"],
-                "music_title": None,
-                "audio_embedding": None,
-            },
+            "doc": {"stage": 2, "music_title": "Song"},
+            "doc_as_upsert": True,
         }
     ]
 
 
-def test_to_bulk_actions_maps_every_post() -> None:
-    post = ProcessedPost(fbid="fb1", timestamp=1, url="u", caption="", hashtags=[])
-    actions = to_bulk_actions("reels", [post, post, post])
+def test_to_upsert_actions_maps_every_update() -> None:
+    update = {"fbid": "fb1", "stage": 1}
+    actions = to_upsert_actions("reels", [update, update, update])
     assert len(actions) == 3

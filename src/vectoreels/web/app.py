@@ -16,9 +16,13 @@ from vectoreels.download.music import get_music_title
 from vectoreels.embedding.audio import ClapAudioEmbedder, embed_reel_audio
 from vectoreels.embedding.decode import decode_audio_to_waveform
 from vectoreels.ingestion.ingest import parse_liked_posts
-from vectoreels.processing.process import AudioEmbeddingLookup, MusicTitleLookup, process_posts
+from vectoreels.processing.process import (
+    AudioEmbeddingLookup,
+    MusicTitleLookup,
+    process_and_index_posts,
+)
 from vectoreels.search.query import to_search_filters
-from vectoreels.search.search import ensure_index, index_posts, search_posts
+from vectoreels.search.search import ElasticsearchStageIndex, ensure_index, search_posts
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 logger = logging.getLogger("vectoreels.upload")
@@ -56,15 +60,14 @@ def _run_upload(app: FastAPI, raw: bytes) -> None:
     try:
         _report_stage(status, "Parsing liked_posts.json")
         posts = parse_liked_posts(raw)
-        processed = process_posts(
+        process_and_index_posts(
             posts,
+            ElasticsearchStageIndex(app.state.es_client),
             music_title_lookup=_build_music_title_lookup(),
             audio_embedding_lookup=_build_audio_embedding_lookup(app.state.audio_embedder),
             on_stage=functools.partial(_report_stage, status),
         )
-        _report_stage(status, "Indexing into Elasticsearch")
-        index_posts(app.state.es_client, processed)
-        status.count = len(processed)
+        status.count = len(posts)
         logger.info("Indexed %d posts", status.count)
     except Exception as exc:
         # Recorded so the polling UI can surface the failure instead of
