@@ -43,6 +43,7 @@ class UploadStatus:
     def __init__(self) -> None:
         self.stage: str | None = None
         self.count: int | None = None
+        self.error: str | None = None
 
 
 def _report_stage(status: UploadStatus, stage: str) -> None:
@@ -52,18 +53,25 @@ def _report_stage(status: UploadStatus, stage: str) -> None:
 
 def _run_upload(app: FastAPI, raw: bytes) -> None:
     status: UploadStatus = app.state.upload_status
-    _report_stage(status, "Parsing liked_posts.json")
-    posts = parse_liked_posts(raw)
-    processed = process_posts(
-        posts,
-        music_title_lookup=_build_music_title_lookup(),
-        audio_embedding_lookup=_build_audio_embedding_lookup(app.state.audio_embedder),
-        on_stage=functools.partial(_report_stage, status),
-    )
-    _report_stage(status, "Indexing into Elasticsearch")
-    index_posts(app.state.es_client, processed)
-    status.count = len(processed)
-    logger.info("Indexed %d posts", status.count)
+    try:
+        _report_stage(status, "Parsing liked_posts.json")
+        posts = parse_liked_posts(raw)
+        processed = process_posts(
+            posts,
+            music_title_lookup=_build_music_title_lookup(),
+            audio_embedding_lookup=_build_audio_embedding_lookup(app.state.audio_embedder),
+            on_stage=functools.partial(_report_stage, status),
+        )
+        _report_stage(status, "Indexing into Elasticsearch")
+        index_posts(app.state.es_client, processed)
+        status.count = len(processed)
+        logger.info("Indexed %d posts", status.count)
+    except Exception as exc:
+        # Recorded so the polling UI can surface the failure instead of
+        # spinning forever; still re-raised so it crashes and prints to the
+        # logs exactly as an uncaught thread exception normally would.
+        status.error = str(exc)
+        raise
 
 
 @asynccontextmanager
@@ -99,6 +107,10 @@ async def upload(request: Request, file: UploadFile) -> HTMLResponse:
 @app.get("/upload/status", response_class=HTMLResponse)
 async def upload_status(request: Request) -> HTMLResponse:
     status: UploadStatus = request.app.state.upload_status
+    if status.error is not None:
+        return templates.TemplateResponse(
+            request, "_upload_status.html", {"error": status.error, "done": True}
+        )
     if status.count is not None:
         return templates.TemplateResponse(
             request, "_upload_status.html", {"count": status.count, "done": True}

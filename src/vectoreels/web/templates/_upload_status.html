@@ -1,4 +1,6 @@
-{% if done %}
+{% if error %}
+<p class="error">Upload failed: {{ error }}</p>
+{% elif done %}
 <p>Indexed {{ count }} posts.</p>
 {% else %}
 <div id="upload-progress" hx-get="/upload/status" hx-trigger="load, every 1s" hx-swap="outerHTML">
