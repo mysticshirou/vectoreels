@@ -50,6 +50,15 @@ def extract_reel_info(url: str, cookiefile: str | Path | None = None) -> dict[st
                 info = ie._real_extract(url)
             except ExtractorError:
                 return None
+            finally:
+                # Concurrent lookups share one cookiefile. yt-dlp writes updated
+                # session cookies back to it on close by default; with many
+                # threads doing that against the same path, one thread's write
+                # races another's read and corrupts the file for everyone. We
+                # only need the cookies for auth, not to persist rotated ones,
+                # so disable the write (load already happened above, inside
+                # _real_extract's login check).
+                ydl.params["cookiefile"] = None
     finally:
         InstagramIE._extract_product = original_extract_product  # type: ignore[method-assign]
 
