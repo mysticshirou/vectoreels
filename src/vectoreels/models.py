@@ -6,6 +6,12 @@ STAGE_CLEANED = 1
 STAGE_TITLED = 2
 STAGE_EMBEDDED = 3
 
+STAGE_NAMES = {
+    STAGE_CLEANED: "cleaned",
+    STAGE_TITLED: "titled",
+    STAGE_EMBEDDED: "embedded",
+}
+
 
 class SimpleLabelValue(BaseModel):
     label: str

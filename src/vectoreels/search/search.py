@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from typing import Any
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, NotFoundError
 from elasticsearch.helpers import bulk, scan
 
 from vectoreels.models import ProcessedPost, SearchFilters
@@ -76,6 +76,19 @@ def posts_at_stage(
 ) -> list[ProcessedPost]:
     hits = scan(client, index=index_name, query={"query": {"term": {"stage": stage}}})
     return [_post_from_hit(hit) for hit in hits]
+
+
+def count_at_stage(client: Elasticsearch, stage: int, index_name: str = INDEX_NAME) -> int:
+    response = client.count(index=index_name, query={"term": {"stage": stage}})
+    return int(response["count"])
+
+
+def get_post(client: Elasticsearch, fbid: str, index_name: str = INDEX_NAME) -> ProcessedPost | None:
+    try:
+        response = client.get(index=index_name, id=fbid)
+    except NotFoundError:
+        return None
+    return _post_from_hit(response)
 
 
 class ElasticsearchStageIndex:
