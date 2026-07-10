@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from vectoreels.download.cookies import is_valid_cookiefile, write_cookiefile
 from vectoreels.download.music import get_music_title
 from vectoreels.embedding.audio import ClapAudioEmbedder, embed_reel_audio
 from vectoreels.embedding.decode import decode_audio_to_waveform
@@ -121,6 +122,21 @@ async def upload_status(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request, "_upload_status.html", {"stage": status.stage, "done": False}
     )
+
+
+@app.post("/cookies", response_class=HTMLResponse)
+async def upload_cookies(request: Request, file: UploadFile) -> HTMLResponse:
+    content = await file.read()
+    if not is_valid_cookiefile(content):
+        return templates.TemplateResponse(
+            request, "_cookies_status.html", {"error": "That doesn't look like a Netscape cookies.txt file"}
+        )
+    if INSTAGRAM_COOKIES_PATH is None:
+        return templates.TemplateResponse(
+            request, "_cookies_status.html", {"error": "INSTAGRAM_COOKIES_PATH is not configured"}
+        )
+    write_cookiefile(Path(INSTAGRAM_COOKIES_PATH), content)
+    return templates.TemplateResponse(request, "_cookies_status.html", {"success": True})
 
 
 @app.post("/search", response_class=HTMLResponse)

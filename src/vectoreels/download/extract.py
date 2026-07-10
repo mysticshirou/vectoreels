@@ -3,7 +3,27 @@ from typing import Any
 
 from yt_dlp import YoutubeDL
 from yt_dlp.extractor.instagram import InstagramIE
+from yt_dlp.networking.exceptions import HTTPError
 from yt_dlp.utils import ExtractorError
+
+
+class InstagramAuthError(Exception):
+    """Raised when Instagram rejects the session itself (stale/expired
+    cookies.txt), as opposed to reporting one specific post as unavailable."""
+
+
+def _is_auth_failure(error: ExtractorError) -> bool:
+    """Instagram's private API (`i.instagram.com/api/v1/...`) answers every
+    authenticated request in JSON, whether the post exists, was deleted, or is
+    restricted. An HTML response means the request never reached that API
+    logic at all -- the session was rejected up front -- so it signals a
+    stale cookiefile rather than anything specific to this post.
+    """
+    cause = error.cause
+    if not isinstance(cause, HTTPError):
+        return False
+    content_type = cause.response.headers.get("content-type", "")
+    return content_type.startswith("text/html")
 
 
 def _capture_carousel_media(product_info: Any) -> list[dict[str, Any]]:
@@ -48,7 +68,11 @@ def extract_reel_info(url: str, cookiefile: str | Path | None = None) -> dict[st
             ie = InstagramIE(ydl)
             try:
                 info = ie._real_extract(url)
-            except ExtractorError:
+            except ExtractorError as e:
+                if _is_auth_failure(e):
+                    raise InstagramAuthError(
+                        "Instagram rejected the session; cookies.txt is likely stale"
+                    ) from e
                 return None
             finally:
                 # Concurrent lookups share one cookiefile. yt-dlp writes updated

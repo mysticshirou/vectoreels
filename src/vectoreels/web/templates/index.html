@@ -12,6 +12,15 @@
   </fieldset>
 
   <fieldset>
+    <legend>Instagram cookies</legend>
+    <form hx-post="/cookies" hx-target="#cookies-status" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      <input type="file" name="file" accept="text/plain" required>
+      <button type="submit">Upload cookies.txt</button>
+    </form>
+    <div id="cookies-status"></div>
+  </fieldset>
+
+  <fieldset>
     <legend>Search</legend>
     <form hx-post="/search" hx-target="#results" hx-swap="innerHTML" hx-encoding="multipart/form-data" x-data="{ keywords: [], newKeyword: '' }">
       <label for="description">Description (matches caption)</label>
